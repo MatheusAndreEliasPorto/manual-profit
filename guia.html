@@ -1,0 +1,563 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guia NTSL v2.4</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            line-height: 1.6;
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+        }
+        h2 {
+            margin-top: 40px;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 10px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        ul li {
+            margin: 10px 0;
+        }
+        a {
+            text-decoration: none;
+            color: #0066cc;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: Consolas, monospace;
+        }
+        .toc {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 40px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Manual NTSL v2.4</h1>
+    <p style="text-align: center;">Versão 2.4 - 24/02/2025</p>
+
+    <div class="toc">
+        <h2 id="sumario">Sumário</h2>
+        <ul>
+            <li><a href="#introducao">Introdução</a></li>
+            <li><a href="#estrutura-estrategia">Estrutura de uma Estratégia</a></li>
+            <li><a href="#area-declaracao-parametros">Área de Declaração de Parâmetros de Entrada</a></li>
+            <li><a href="#area-declaracao-variaveis">Área de Declaração de Variáveis e Funções</a></li>
+            <li><a href="#area-codigo">Área de Código</a></li>
+            <li><a href="#fluxo-execucao">Fluxo de Execução de uma Estratégia</a></li>
+            <li><a href="#variaveis-tipos-dados">Variáveis, Tipos de Dados e Constantes</a></li>
+            <li><a href="#tipos-dados">Tipos de Dados</a></li>
+            <li><a href="#series-dados">Séries de Dados</a></li>
+            <li><a href="#arrays">Arrays</a></li>
+            <li><a href="#correlacao-ativos">Correlação de Múltiplos Ativos</a></li>
+            <li><a href="#acessando-dados-anteriores">Acessando Dados Anteriores</a></li>
+            <li><a href="#constantes">Constantes</a></li>
+            <li><a href="#controle-fluxo">Controle de Fluxo</a></li>
+            <li><a href="#if-then-else">If Then Else</a></li>
+            <li><a href="#for-to-downto">For (To / DownTo) Do</a></li>
+            <li><a href="#while">While</a></li>
+            <li><a href="#repeat">Repeat</a></li>
+            <li><a href="#operadores-matematicos">Operadores Matemáticos</a></li>
+            <li><a href="#operadores-logicos">Operadores Lógicos</a></li>
+            <li><a href="#funcoes">Funções</a></li>
+            <li><a href="#criando-funcoes">Criando Funções (Sintaxe)</a></li>
+            <li><a href="#funcoes-biblioteca">Funções de Biblioteca</a></li>
+            <li><a href="#funcoes-matematicas">Funções Matemáticas</a></li>
+            <li><a href="#funcoes-graficas">Funções Gráficas</a></li>
+            <li><a href="#back-testing">Back-Testing</a></li>
+            <li><a href="#criando-estrategia-execucao">Criando uma Estratégia de Execução</a></li>
+            <li><a href="#criando-automacao">Criando uma Automação</a></li>
+            <li><a href="#opcoes-entrada">Opções de Entrada</a></li>
+            <li><a href="#modo-execucao">Modo de Execução</a></li>
+            <li><a href="#opcoes-saida">Opções de Saída</a></li>
+            <li><a href="#risco">Risco</a></li>
+            <li><a href="#seguranca">Segurança</a></li>
+            <li><a href="#acompanhamento">Acompanhamento</a></li>
+            <li><a href="#regras-execucao">Regras de Execução</a></li>
+            <li><a href="#abrir-estrategias">Abrir Estratégias</a></li>
+            <li><a href="#gerenciador-estrategias">Gerenciador de Estratégias</a></li>
+            <li><a href="#exportar-importar">Exportar / Importar Estratégias</a></li>
+            <li><a href="#criar-regra-alarme">Criar Regra de Alarme</a></li>
+            <li><a href="#screening">Screening</a></li>
+            <li><a href="#editor-estrategias">Editor de Estratégias</a></li>
+            <li><a href="#anexo">Anexo</a></li>
+            <li><a href="#exemplos-funcionamento">Exemplos de Funcionamento de Estratégias</a></li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2 id="introducao">Introdução</h2>
+        <p>A NTSL (Nelogica Trading System Language) é uma poderosa linguagem criada com um único propósito: permitir o desenvolvimento dos melhores e mais eficientes sistemas algorítmicos de operação. A Nelogica oferece juntamente com a NTSL um ambiente de criação pioneiro e revolucionário chamado AlgoTools. Com o AlgoTools é possível codificar, testar e simular com grande agilidade qualquer estratégia de operação. Na NTSL, o usuário encontra uma grande facilidade no momento de criação de suas estratégias, a possibilidade de criar toda ela em português, havendo assim, a facilidade e fácil entendimento da estratégia criada.</p>
+        <p>Observe o trecho de código abaixo que representa o indicador média móvel. Esse código apresenta as três áreas que definem a estrutura de uma estratégia. São elas: área de declaração de parâmetros de entrada, área de declaração de variáveis e funções e área de código.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="estrutura-estrategia">Estrutura de uma Estratégia</h2>
+        <p>A área de parâmetros de entrada compreende toda a região entre a palavra reservada <code>input</code> (parâmetro) e a palavra reservada <code>var</code>. A área de variáveis e funções começa com a palavra <code>var</code> e estende-se até a palavra <code>begin</code> (início). Finalmente, a região de código inicia-se com a palavra reservada <code>begin</code> (início) e finaliza na palavra <code>end</code> (fim).</p>
+    </div>
+
+    <div class="section">
+        <h2 id="area-declaracao-parametros">Área de Declaração de Parâmetros de Entrada</h2>
+        <p>Na área de declaração de parâmetros de entrada informamos todos os parâmetros externos que a estratégia usará. Esses parâmetros são fundamentais, pois:</p>
+        <ul>
+            <li>Definem a interface com o mundo externo, ou seja, é onde usuário poderá alterar e o que servirá como parâmetro de chamada caso a estratégia seja utilizada em outra interface/estratégia.</li>
+            <li>Define os itens que serão analisados no processo de otimização.</li>
+        </ul>
+        <p>Para definir um parâmetro: <code>NOME_DO_PARÂMETRO (VALOR_DE_INICIALIZAÇÃO)</code></p>
+        <p>Exemplo:</p>
+        <pre><code>input
+    Periodo(20);</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="area-declaracao-variaveis">Área de Declaração de Variáveis e Funções</h2>
+        <p>Na área de declaração de variáveis informamos todas as variáveis que serão utilizadas na estratégia. Nesta região também descrevemos funções que desejamos usar no código. As funções devem ser sempre codificadas após a declaração das variáveis.</p>
+        <p>Para declarar uma variável: <code>NOME_DA_VARIAVEL : TIPO</code></p>
+        <p>Exemplo:</p>
+        <pre><code>var
+    wdoMedia : Float;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="area-codigo">Área de Código</h2>
+        <p>Nesta parte descreve-se o código propriamente dito, ou seja, as regras que utilizam parâmetros, variáveis e outros dados para calcular sinais e indicadores.</p>
+        <p>O código de uma estratégia é executado de maneira sequencial. Porém, ele é executado sequencialmente candle por candle, como se houvesse um laço que percorre toda série de dados de um ativo.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="fluxo-execucao">Fluxo de Execução de uma Estratégia</h2>
+        <p>Sendo assim, a sequência de comandos existente na área de código será executada uma vez para cada candle existente. Para cada candle, será executado o código da estratégia em um loop implícito. A regra em pseudocódigo é, portanto:</p>
+        <ul>
+            <li>Tendo uma série de dados X de tamanho N;</li>
+            <li>Para cada item X[i], com i variando de 0 até N-1, executa-se a área de código da estratégia;</li>
+            <li>A cada novo dado do ativo, o código da estratégia continua sendo executado, avaliando o último e o penúltimo candle;</li>
+        </ul>
+        <p><strong>Importante:</strong></p>
+        <ul>
+            <li>O mesmo candle pode ser processado diversas vezes. Isso ocorre muito em tempo real, onde cada trade pode gerar uma notificação de reprocessamento do fluxo de execução.</li>
+            <li>Quando uma ordem é executada, o fluxo de execução reprocessa o mesmo candle para ativar as ordens Covers.</li>
+            <li>Dependendo da notificação dos candles, podem ser reprocessados candles passados. Isso deve ser levado em consideração pelo programador.</li>
+        </ul>
+        <p>Exemplo:</p>
+        <pre><code>var
+    nValor : Float;
+begin
+    nValor := Close;
+    // Acessando o valor de nValor de 2 candles atrás
+    if nValor[2] > 0 then
+        Plot(nValor[2]);
+end;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="variaveis-tipos-dados">Variáveis, Tipos de Dados e Constantes</h2>
+        <p>As variáveis são utilizadas para armazenar dados, conforme seu tipo específico.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="tipos-dados">Tipos de Dados</h2>
+        <p><strong>Float ou Real</strong> - Representa números de ponto flutuante.</p>
+        <p><strong>Integer ou Inteiro</strong> - Representa números inteiros.</p>
+        <p><strong>Boolean ou Booleano</strong> - Representação lógica: True ou Verdadeiro e False ou Falso.</p>
+        <p><strong>Serie</strong> - Representa uma série de dados.</p>
+        <p>A NTSL suporta a conversão implícita de valores Float a Inteiros, isto é, atribuir um valor Float diretamente a um valor Integer. O valor inteiro será o valor do ponto flutuante, descartando as casas decimais.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="series-dados">Séries de Dados</h2>
+        <p>As séries de dados são utilizadas para obter dados específicos de cada Candle.</p>
+        <p><strong>Séries:</strong></p>
+        <ul>
+            <li><strong>Open ou Abertura</strong> - Retorna o valor de abertura de cada candle.</li>
+            <li><strong>Close ou Fechamento</strong> - Retorna o dado de fechamento.</li>
+            <li><strong>Low ou Mínima</strong> - Retorna o valor de mínima.</li>
+            <li><strong>High ou Máxima</strong> - Retorna o dado de máxima.</li>
+            <li><strong>Quantity ou Quantidade</strong> - Retorna o valor de contratos negociados de cada candle.</li>
+            <li><strong>Volume</strong> - Retorna o dado de volume financeiro de cada candle.</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2 id="arrays">Arrays</h2>
+        <p>Análogo ao tipo Serie, a estrutura de um Array permite o armazenamento de dados de um tipo específico, contudo, após sua criação, seu comprimento será fixo, o que permite uma alocação menor de memória.</p>
+        <p>Estrutura da declaração:</p>
+        <pre><code>var
+    Variavel : Array[Tamanho] Of Tipo;</code></pre>
+        <p>Exemplo:</p>
+        <pre><code>var
+    i, sum : Integer;
+    lista : array[1..10] of Integer;
+begin
+    for i := 1 to 10 do
+        lista[i] := i;
+    sum := 0;
+    for i := 1 to 10 do
+        sum := sum + i;
+    Plot(sum);
+end;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="correlacao-ativos">Correlação de Múltiplos Ativos</h2>
+        <p>É possível ainda acessar os dados, ao utilizar o recurso Asset, onde é necessário parametrizar o ativo específico, e a bolsa a qual pertence.</p>
+        <p>Estrutura da declaração:</p>
+        <pre><code>const
+    variavel = Asset("nomeDoAtivo", feedNOMEDABOLSA);</code></pre>
+        <p>Exemplo:</p>
+        <pre><code>const
+    WDO = Asset("WDOFUT", feedBMF);
+begin
+    Plot(WDO.close);
+end;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="acessando-dados-anteriores">Acessando Dados Anteriores</h2>
+        <p>O dado atual de uma variável pode ser descrito por <code>Variavel[0]</code>. O número entre colchetes indica o dado de quantos períodos anteriores deseja-se acessar (sendo 0, portanto, da barra corrente).</p>
+        <p>Exemplo:</p>
+        <pre><code>sResult := Preco[1];</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="constantes">Constantes</h2>
+        <p>São utilizadas para a inserção de parâmetros de determinadas funções, estes valores não podem ser alterados pelo usuário.</p>
+        <p><strong>Lado da Ordem:</strong></p>
+        <ul>
+            <li><code>osBuy ou osCompra</code>: Ordem de compra.</li>
+            <li><code>osSell ou osVenda</code>: Ordem de venda.</li>
+        </ul>
+        <p><strong>Cores:</strong></p>
+        <ul>
+            <li><code>clAqua ou clAzulClaro</code> - Cor azul-claro</li>
+            <li><code>clBlack ou clPreto</code> - Cor preta</li>
+            <!-- Add more colors as needed -->
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2 id="controle-fluxo">Controle de Fluxo</h2>
+        <p>As instruções de fluxo são utilizadas para administrar a sequência de execução das instruções dentro de um programa.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="if-then-else">If Then Else</h2>
+        <p>Se (condição) for verdadeiro executa-se a listagem (comandos 1), caso (condição) seja falso executa-se (comandos 2).</p>
+        <p>Exemplo:</p>
+        <pre><code>begin
+    if (close = close[1]) then
+        PaintBar(clYellow)
+    else if (close > close[1]) then
+        PaintBar(clGreen)
+    else
+        PaintBar(clRed);
+end;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="for-to-downto">For (To / DownTo) Do</h2>
+        <p>O comando <code>FOR</code> é utilizado para definir um loop controlado, ou seja, o bloco é executado repetidamente até que a variável de contagem saia do valor inicial e atinja o valor final.</p>
+        <p>Exemplo:</p>
+        <pre><code>input
+    Preco(close);
+    Periodo(9);
+var
+    sResult : Float;
+    nIndex : Integer;
+begin
+    sResult := 0;
+    for nIndex := 0 to Periodo - 1 do
+    begin
+        sResult := sResult + Preco[nIndex];
+    end;
+    Plot(sResult / Periodo);
+end;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="while">While</h2>
+        <p>A execução da estratégia ao chegar no comando <code>WHILE</code> testa o resultado de (condição). Caso (condição) seja verdadeiro (true) a listagem (comandos) é executada.</p>
+        <p>Exemplo:</p>
+        <pre><code>input
+    Preco(close);
+    Periodo(9);
+var
+    sResult : Float;
+    nIndex : Integer;
+begin
+    sResult := 0;
+    nIndex := 0;
+    while (nIndex <= Periodo - 1) do
+    begin
+        sResult := sResult + Preco[nIndex];
+        nIndex := nIndex + 1;
+    end;
+    Plot(sResult / Periodo);
+end;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="repeat">Repeat</h2>
+        <p>Este comando difere-se do <code>For</code> e <code>While</code>, no sentido de que a condição será testada no final da estrutura, e não no início, portanto, as instruções do bloco serão executadas pelo menos uma vez.</p>
+        <p>Exemplo:</p>
+        <pre><code>input
+    n(5);
+var
+    fatorial : Integer;
+    i : Integer;
+begin
+    fatorial := 1;
+    i := n;
+    repeat
+    begin
+        fatorial := fatorial * i;
+        i := i - 1;
+    end
+    until (i = 1);
+    Plot(fatorial);
+end;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="operadores-matematicos">Operadores Matemáticos</h2>
+        <p>Os operadores matemáticos são utilizados em cálculos, como adição (+), subtração (-), multiplicação (*), e divisão (/).</p>
+    </div>
+
+    <div class="section">
+        <h2 id="operadores-logicos">Operadores Lógicos</h2>
+        <p>Os operadores lógicos são utilizados principalmente para comparações.</p>
+        <p><strong>"E" lógico</strong></p>
+        <p>Representado pela palavra reservada <code>and</code> (e), retornará <code>TRUE</code> somente quando as duas condições de teste forem verdadeiras.</p>
+        <p><strong>"OU" lógico</strong></p>
+        <p>Representado pela palavra reservada <code>or</code> (ou), retornará <code>TRUE</code> (verdadeiro) sempre que pelo menos uma das condições de teste for verdadeira.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="funcoes">Funções</h2>
+        <p>Conforme visto, funções são declaradas e descritas na área de declaração de variáveis e funções.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="criando-funcoes">Criando Funções (Sintaxe)</h2>
+        <p><code>Function (funcao) Nome da Função ((parâmetro 1 : TIPO); (parâmetro 2: TIPO); (parâmetro n: TIPO)) : Tipo de Retorno</code></p>
+        <p><code>Begin (inicio)</code></p>
+        <p><code>Comandos</code></p>
+        <p><code>End (fim);</code></p>
+    </div>
+
+    <div class="section">
+        <h2 id="funcoes-biblioteca">Funções de Biblioteca</h2>
+        <p>Além do usuário poder criar seus próprios indicadores, é possível utilizar a biblioteca do sistema, ou seja, o usuário pode utilizar estratégias já criadas em novas.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="funcoes-matematicas">Funções Matemáticas</h2>
+        <p>As funções matemáticas têm como finalidade implementar as seguintes funcionalidades:</p>
+        <ul>
+            <li><code>Power(valor, potência)</code>: Gera valores elevados em determinada potência.</li>
+            <li><code>Round(valor)</code>: Arredondamento de números quebrados.</li>
+            <li><code>Sqrt(valor)</code>: Mostra a raiz quadrada de valores desejados pelo usuário.</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2 id="funcoes-graficas">Funções Gráficas</h2>
+        <p>Como visto anteriormente, a função <code>Plot</code> realiza a ligação dos valores gerados na estratégia e cria gráficos de linhas, mas caso haja a necessidade, o usuário também poderá colorir o gráfico de acordo com o desejado.</p>
+        <p>Exemplo:</p>
+        <pre><code>PaintBar(clLime);</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="back-testing">Back-Testing</h2>
+        <p>A funcionalidade de Back-testing permite ao usuário avaliar uma determinada estratégia, teoria ou modelo através de uma análise de dados históricos.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="criando-estrategia-execucao">Criando uma Estratégia de Execução</h2>
+        <p>Para criar uma automação você precisará criar uma estratégia de execução, que pode ser criada a partir do Editor de Estratégias.</p>
+        <p>Exemplo:</p>
+        <pre><code>begin
+    if (IsBought) then
+    begin
+        if (RSI(9, 0) > 70) then
+            SellToCoverAtMarket;
+    end
+    else if (IsSold) then
+    begin
+        if (RSI(9, 0) < 30) then
+            BuyToCoverAtMarket;
+    end
+    else if (RSI(9, 0)[1] < 30) and (RSI(9, 0) > 30) then
+        BuyAtMarket
+    else if (RSI(9, 0)[1] > 70) and (RSI(9, 0) < 30) then
+        SellShortAtMarket;
+end;</code></pre>
+    </div>
+
+    <div class="section">
+        <h2 id="criando-automacao">Criando uma Automação</h2>
+        <p>Para criar uma nova automação basta abrir a interface de controle e localizar o botão “Nova Automação” localizada no menu superior da janela.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="opcoes-entrada">Opções de Entrada</h2>
+        <p>Nesta seção é possível especificar parâmetros que alterem a estratégia de abertura de ordens da automatização.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="modo-execucao">Modo de Execução</h2>
+        <p>Há dois modos de execução: Realizar envio de ordens no fechamento do candle e Realizar envio de ordens quando a condição for satisfeita, também chamado de modo Tick a Tick.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="opcoes-saida">Opções de Saída</h2>
+        <p>É possível configurar uma estratégia OCO que será aberta junto com suas ordens.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="risco">Risco</h2>
+        <p>Na seção Pausar e Zerar ao Alcançar é possível configurar parâmetros que irão pausar e encerrar as posições abertas de acordo com um objetivo de ganho, ou um limite de perda.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="seguranca">Segurança</h2>
+        <p>Na seção Segurança, temos algumas configurações para definir o comportamento da estratégia em caso ocorra um erro de execução no código da mesma ou eventuais mudanças do mercado.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="acompanhamento">Acompanhamento</h2>
+        <p>[Conteúdo omitido devido à truncagem. Adicione o conteúdo correspondente aqui.]</p>
+    </div>
+
+    <div class="section">
+        <h2 id="regras-execucao">Regras de Execução</h2>
+        <p>[Conteúdo omitido devido à truncagem. Adicione o conteúdo correspondente aqui.]</p>
+    </div>
+
+    <div class="section">
+        <h2 id="abrir-estrategias">Abrir Estratégias</h2>
+        <p>[Conteúdo omitido devido à truncagem. Adicione o conteúdo correspondente aqui.]</p>
+    </div>
+
+    <div class="section">
+        <h2 id="gerenciador-estrategias">Gerenciador de Estratégias</h2>
+        <p>[Conteúdo omitido devido à truncagem. Adicione o conteúdo correspondente aqui.]</p>
+    </div>
+
+    <div class="section">
+        <h2 id="exportar-importar">Exportar / Importar Estratégias</h2>
+        <p>[Conteúdo omitido devido à truncagem. Adicione o conteúdo correspondente aqui.]</p>
+    </div>
+
+    <div class="section">
+        <h2 id="criar-regra-alarme">Criar Regra de Alarme</h2>
+        <p>[Conteúdo omitido devido à truncagem. Adicione o conteúdo correspondente aqui.]</p>
+    </div>
+
+    <div class="section">
+        <h2 id="screening">Screening</h2>
+        <p>A função <code>Select</code>, apesar de estar disponível na linguagem, não possui recursos para utilização do usuário, sua implementação é específica para uso do sistema, a fim de habilitação do Screening.</p>
+    </div>
+
+    <div class="section">
+        <h2 id="editor-estrategias">Editor de Estratégias</h2>
+        <p>[Conteúdo omitido devido à truncagem. Adicione o conteúdo correspondente aqui.]</p>
+    </div>
+
+    <div class="section">
+        <h2 id="anexo">Anexo</h2>
+        <h3 id="exemplos-funcionamento">Exemplos de Funcionamento de Estratégias</h3>
+        <p>1 - Nenhuma ordem será criada, já que existe um cancelamento de ordens.</p>
+        <pre><code>Begin
+    BuyAtMarket;
+    CancelPendingOrders;
+End;</code></pre>
+        <p>2 - Nenhuma ordem será criada, pois o <code>ClosePosition</code> vai cancelar a ordem <code>BuyAtMarket</code>.</p>
+        <pre><code>Begin
+    BuyAtMarket;
+    ClosePosition;
+End;</code></pre>
+        <p>3 - Nenhuma ordem será criada, pois o <code>ReversePosition</code> vai cancelar a ordem <code>SellShortAtMarket</code>.</p>
+        <pre><code>Begin
+    SellShortAtMarket;
+    ReversePosition;
+End;</code></pre>
+        <p>4 - Nenhuma ordem será criada, pois é realizada o agrupamento de ordens AtMarket que estão dentro do mesmo fluxo de execução.</p>
+        <pre><code>Begin
+    BuyAtMarket;
+    SellShortAtMarket;
+End;</code></pre>
+        <p>5 - O código abaixo não abre ordens covers. Pois ao passar pela linha <code>BuyAtMarket</code> não é gerada uma posição, pois não há execução da ordem.</p>
+        <pre><code>Begin
+    If not HasPosition then
+    begin
+        BuyAtMarket;
+        SellToCoverLimit(Close + 10 * MinPriceIncrement);
+        SellToCoverStop(Close - 10 * MinPriceIncrement);
+    end;
+End;</code></pre>
+    </div>
+
+</body>
+</html>
